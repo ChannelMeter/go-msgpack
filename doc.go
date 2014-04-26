@@ -85,4 +85,3 @@ Usage
  
 */
 package msgpack
-}
