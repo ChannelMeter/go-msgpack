@@ -85,16 +85,4 @@ Usage
  
 */
 package msgpack
-
-import golog "log"
-func init() {
-	//printout deprecation notice
-	golog.Print(`
-************************************************ 
-package github.com/ugorji/go-msgpack has been deprecated (05/29/2013). 
-It will be retired anytime from July 1, 2013.
-Please update to faster and much much better github.com/ugorji/go/codec.
-See https://github.com/ugorji/go/tree/master/codec#readme for more information.
-************************************************ 
-`)
 }
