@@ -1,4 +1,3 @@
-
 /*
 go-msgpack - Msgpack library for Go. Provides pack/unpack and net/rpc support.
 https://github.com/ugorji/go-msgpack
@@ -33,46 +32,46 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package msgpack
 
 import (
+	"fmt"
+	"reflect"
+	"strings"
+	"sync"
+	"time"
 	"unicode"
 	"unicode/utf8"
-	"reflect"
-	"sync"
-	"strings"
-	"fmt"
-	"time"
 )
 
 type ContainerType byte
 
 const (
 	ContainerRawBytes = ContainerType('b')
-	ContainerList = ContainerType('a')
-	ContainerMap = ContainerType('m')
+	ContainerList     = ContainerType('a')
+	ContainerMap      = ContainerType('m')
 )
 
 var (
 	structInfoFieldName = "_struct"
-	
-	cachedStructFieldInfos = make(map[reflect.Type]*structFieldInfos, 4)
-	cachedStructFieldInfosMutex sync.Mutex
 
-	nilIntfSlice = []interface{}(nil)
-	intfSliceTyp = reflect.TypeOf(nilIntfSlice)
-	intfTyp = intfSliceTyp.Elem()
-	byteSliceTyp = reflect.TypeOf([]byte(nil))
-	timeTyp = reflect.TypeOf(time.Time{})
+	cachedStructFieldInfos      = make(map[reflect.Type]*structFieldInfos, 4)
+	cachedStructFieldInfosMutex sync.RWMutex
+
+	nilIntfSlice     = []interface{}(nil)
+	intfSliceTyp     = reflect.TypeOf(nilIntfSlice)
+	intfTyp          = intfSliceTyp.Elem()
+	byteSliceTyp     = reflect.TypeOf([]byte(nil))
+	timeTyp          = reflect.TypeOf(time.Time{})
 	mapStringIntfTyp = reflect.TypeOf(map[string]interface{}(nil))
-	mapIntfIntfTyp = reflect.TypeOf(map[interface{}]interface{}(nil))
+	mapIntfIntfTyp   = reflect.TypeOf(map[interface{}]interface{}(nil))
 )
 
 type structFieldInfo struct {
-	i         int      // field index in struct
+	i         int // field index in struct
 	is        []int
 	tag       string
 	omitEmpty bool
-	encName   string   // encode name
+	encName   string // encode name
 	encNameBs []byte
-	name      string   // field name
+	name      string // field name
 }
 
 type structFieldInfos struct {
@@ -100,16 +99,18 @@ func (sis *structFieldInfos) getForEncName(name string) (si *structFieldInfo) {
 }
 
 func getStructFieldInfos(rt reflect.Type) (sis *structFieldInfos) {
+	cachedStructFieldInfosMutex.RLock()
 	sis, ok := cachedStructFieldInfos[rt]
+	cachedStructFieldInfosMutex.RUnlock()
 	if ok {
-		return 
+		return
 	}
-	
+
 	cachedStructFieldInfosMutex.Lock()
 	defer cachedStructFieldInfosMutex.Unlock()
-	
+
 	sis = new(structFieldInfos)
-	
+
 	var siInfo *structFieldInfo
 	if f, ok := rt.FieldByName(structInfoFieldName); ok {
 		siInfo = parseStructFieldInfo(structInfoFieldName, f.Tag.Get("msgpack"))
@@ -129,7 +130,7 @@ func rgetStructFieldInfos(rt reflect.Type, indexstack []int, sis *structFieldInf
 
 		if r1, _ := utf8.DecodeRuneInString(f.Name); r1 == utf8.RuneError || !unicode.IsUpper(r1) {
 			continue
-		} 
+		}
 
 		if f.Anonymous {
 			//if anonymous, inline it if there is no msgpack tag, else treat as regular field
@@ -139,7 +140,7 @@ func rgetStructFieldInfos(rt reflect.Type, indexstack []int, sis *structFieldInf
 			}
 		}
 		si := parseStructFieldInfo(f.Name, stag)
-		
+
 		if len(indexstack) == 0 {
 			si.i = j
 		} else {
@@ -168,12 +169,12 @@ func parseStructFieldInfo(fname string, stag string) (si *structFieldInfo) {
 	if fname == "" {
 		panic("parseStructFieldInfo: No Field Name")
 	}
-	si = &structFieldInfo {
-		name: fname,
+	si = &structFieldInfo{
+		name:    fname,
 		encName: fname,
-		tag: stag,
-	}	
-	
+		tag:     stag,
+	}
+
 	if stag != "" {
 		for i, s := range strings.Split(si.tag, ",") {
 			if i == 0 {
@@ -213,19 +214,18 @@ func reflectValue(v interface{}) (rv reflect.Value) {
 	if !ok {
 		rv = reflect.ValueOf(v)
 	}
-	return 
+	return
 }
 
 func panicToErr(err *error) {
-	if x := recover(); x != nil { 
+	if x := recover(); x != nil {
 		panicToErrT(x, err)
 	}
 }
 
 func doPanic(tag string, format string, params []interface{}) {
-	params2 := make([]interface{}, len(params) + 1)
+	params2 := make([]interface{}, len(params)+1)
 	params2[0] = tag
 	copy(params2[1:], params)
-	panic(fmt.Errorf("%s: " + format, params2...))
+	panic(fmt.Errorf("%s: "+format, params2...))
 }
-
